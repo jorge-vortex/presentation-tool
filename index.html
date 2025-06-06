@@ -189,6 +189,34 @@ document.addEventListener('DOMContentLoaded',()=>{
     };
   }
 
+  // Add baseRow and extraRow click handlers
+  const baseClick = $('#baseRow');
+  const extraClick = $('#extraRow');
+
+  if (baseClick) {
+    baseClick.onclick = () => {
+      if (baseOn) {
+        baseOn = false;
+        refreshRows();
+      } else {
+        baseOn = true;
+        refreshRows();
+      }
+    };
+  }
+
+  if (extraClick) {
+    extraClick.onclick = () => {
+      if (extraOn) {
+        extraOn = false;
+        refreshRows();
+      } else {
+        extraOn = true;
+        refreshRows();
+      }
+    };
+  }
+
   const refreshRows=()=>{
     $('#baseInfo').textContent  = baseOn?` – ${basePct}% (–${fmt(baseAmt)})`:'';
     $('#extraInfo').textContent = extraOn?` – ${extraPct}% (–${fmt(extraAmt)})`:'';
@@ -201,8 +229,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     $('#savingsBadge').textContent=fmt(saved)+' Savings';
     const total=retail-saved;
     $('#projectTotal').textContent=fmt(total);
-    const cashElem = $('#colCash').querySelector('.payAmt');
-    if (cashElem) cashElem.textContent = fmt(total / 2);
+    buildPayments(total);
   };
 
   const buildPayments=pr=>{
@@ -234,7 +261,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     $('#patioCount').textContent  =$('#patioIn').value||0;
     $('#entryCount').textContent  =$('#entryIn').value||0;
 
-    buildPayments(finalPrice);   /* build tiles FIRST */
+    // buildPayments(finalPrice);   /* build tiles FIRST */  // REMOVED
     $('#paymentSection').classList.add('hidden');   // keep hidden until clicked
     refreshRows();
     $('#adminPanel').classList.add('hidden');$('#clientPanel').classList.remove('hidden');
