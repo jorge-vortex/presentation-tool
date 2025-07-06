@@ -44,6 +44,10 @@
   <!-- price / discounts -->
   <div class="grid lg:grid-cols-4 gap-6">
     <div class="card space-y-1">
+      <label class="text-xs font-semibold text-gray-600">Client Name</label>
+      <input id="clientName" type="text" class="w-full border rounded-lg p-2" placeholder="John&nbsp;Doe">
+    </div>
+    <div class="card space-y-1">
       <label class="text-xs font-semibold text-gray-600">Desired Final Price ($)</label>
       <input id="finalPrice" type="number" min="0" step="0.01" class="w-full border rounded-lg p-2" placeholder="15000">
     </div>
@@ -83,6 +87,14 @@
   </div>
   <button id="saveTier" class="mt-3 bg-green-600 hover:bg-green-700 text-white rounded-lg px-5 py-1.5">Save Current Tier</button>
 
+  <!-- saved quotes -->
+  <h2 class="text-xl font-semibold text-blue-800 mt-8">Saved Quotes</h2>
+  <div class="flex gap-3 items-center">
+    <select id="savedQuotes" class="border rounded-lg p-2 flex-grow"></select>
+    <button id="loadQuote"   class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-1">Load</button>
+    <button id="removeQuote" class="bg-red-600  hover:bg-red-700  text-white rounded-lg px-4 py-1">Delete</button>
+  </div>
+
   <div class="flex justify-between gap-4 pt-4">
     <button id="presentBtn" class="flex-1 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl py-3 text-lg font-semibold">Present</button>
     <button id="resetAdmin" class="bg-gray-400 hover:bg-gray-500 text-white rounded-xl px-6 py-3">Reset Inputs</button>
@@ -94,6 +106,7 @@
   <header class="flex items-center gap-4 pb-4 border-b border-gray-200">
     <img src="american-vision-windows-logo.png" alt="logo" class="h-10">
     <h1 class="text-2xl font-extrabold text-blue-800 flex-grow">2025 Project Pricing</h1>
+    <h2 id="clientNameDisplay" class="text-lg font-semibold text-blue-700"></h2>
     <div class="flex gap-2 text-xl">
       <button id="backToAdmin" class="bg-gray-100 hover:bg-gray-200 rounded-full w-9 h-9 flex items-center justify-center">↺</button>
       <button id="emailBtn"  class="bg-gray-100 hover:bg-gray-200 rounded-full w-9 h-9 flex items-center justify-center">✉️</button>
@@ -151,12 +164,24 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const TIER='ppt_tiers',PLAN='ppt_plans',PWD='ppt_pwd';
+  const QUOTES = 'ppt_quotes';
   if(!localStorage.getItem(PWD))localStorage.setItem(PWD,'admin');
 
   /* tier & plan loaders (unchanged) */
   const loadTiers=()=>{const l=JSON.parse(localStorage.getItem(TIER)||'[]');$('#savedTiers').innerHTML='';l.forEach((v,i)=>$('#savedTiers').insertAdjacentHTML('beforeend',`<option value="${i}">${v.base}% + ${v.extra}%</option>`));};
   const loadPlans=()=>{const body=$('#plansBody');body.innerHTML='';JSON.parse(localStorage.getItem(PLAN)||'[]').forEach((p,i)=>body.insertAdjacentHTML('beforeend',`<tr><td class="px-3 py-1">${p.name}</td><td class="px-3 py-1">${p.term}</td><td class="px-3 py-1">${p.apr}</td><td class="px-3 py-1"><button data-i="${i}" class="delPlan text-red-600">Del</button></td></tr>`));};
   loadTiers();loadPlans();
+
+  const loadQuotes = () => {
+    const arr = JSON.parse(localStorage.getItem(QUOTES) || '[]');
+    const sel = $('#savedQuotes');
+    if (!sel) return;
+    sel.innerHTML = '';
+    arr.forEach((q,i) =>
+      sel.insertAdjacentHTML('beforeend',
+        `<option value="${i}">${q.name || 'Unnamed'} – ${fmt(q.final)} – ${q.windows||0}W ${q.patio||0}P ${q.entry||0}E</option>`));
+  };
+  loadQuotes();
 
   $('#saveTier').onclick=()=>{const b=+$('#baseDiscount').value,e=+$('#extraDiscount').value;if(!b&&!e)return alert('Enter discounts');const l=JSON.parse(localStorage.getItem(TIER)||'[]');l.push({base:b,extra:e});localStorage.setItem(TIER,JSON.stringify(l));loadTiers();};
   $('#deleteTier').onclick=()=>{const idx=+$('#savedTiers').value;const l=JSON.parse(localStorage.getItem(TIER)||'[]');l.splice(idx,1);localStorage.setItem(TIER,JSON.stringify(l));loadTiers();};
@@ -165,10 +190,38 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('#addPlan').onclick=()=>{const n=$('#planName').value.trim(),t=+$('#planTerm').value,a=+$('#planApr').value;if(!n||!t)return alert('Name & term');const l=JSON.parse(localStorage.getItem(PLAN)||'[]');const idx=l.findIndex(p=>p.name===n);const obj={name:n,term:t,apr:a};idx>-1?l.splice(idx,1,obj):l.push(obj);localStorage.setItem(PLAN,JSON.stringify(l));loadPlans();$('#planName').value=$('#planTerm').value=$('#planApr').value='';};
   $('#plansBody').onclick=e=>{if(e.target.classList.contains('delPlan')){const idx=+e.target.dataset.i;const l=JSON.parse(localStorage.getItem(PLAN)||'[]');l.splice(idx,1);localStorage.setItem(PLAN,JSON.stringify(l));loadPlans();}};
 
-  $('#resetAdmin').onclick=()=>document.querySelectorAll('#adminPanel input').forEach(i=>i.value='');
+  $('#resetAdmin').onclick=()=>{
+    document.querySelectorAll('#adminPanel input').forEach(i=>i.value='');
+    currentQuoteIndex = null;
+  };
+
+  $('#loadQuote').onclick = () => {
+    const arr = JSON.parse(localStorage.getItem(QUOTES) || '[]');
+    const idx = +$('#savedQuotes').value;
+    const q   = arr[idx];
+    if (!q) return;
+
+    currentQuoteIndex = idx;         // remember which quote we loaded
+
+    $('#clientName').value   = q.name;
+    $('#finalPrice').value   = q.final;
+    $('#baseDiscount').value = q.basePct;
+    $('#extraDiscount').value= q.extraPct;
+    $('#windowsIn').value    = q.windows ?? 0;
+    $('#patioIn').value      = q.patio   ?? 0;
+    $('#entryIn').value      = q.entry   ?? 0;
+    $('#clientNameDisplay').textContent = q.name ? 'Client: ' + q.name : '';
+  };
+
+  $('#removeQuote').onclick = () => {
+    const arr = JSON.parse(localStorage.getItem(QUOTES) || '[]');
+    arr.splice(+$('#savedQuotes').value,1);
+    localStorage.setItem(QUOTES, JSON.stringify(arr));
+    loadQuotes();
+  };
 
   /* presentation vars */
-  let retail=0,baseAmt=0,extraAmt=0,basePct=0,extraPct=0,finalPrice=0,baseOn=false,extraOn=false;
+  let retail=0,baseAmt=0,extraAmt=0,basePct=0,extraPct=0,finalPrice=0,baseOn=false,extraOn=false,currentQuoteIndex=null;
 
   let revealStep = 0;  // 0 = nothing shown, 1 = base shown, 2 = both shown
 
@@ -249,6 +302,30 @@ document.addEventListener('DOMContentLoaded',()=>{
     baseAmt = Math.round(retail * basePct / 100);
     extraAmt = retail - baseAmt - Math.round(finalPrice);  // ensure exact final
 
+    // Save or update quote
+    const quote = {
+      id: Date.now(),
+      name: $('#clientName').value.trim(),
+      final: finalPrice,
+      basePct,
+      extraPct,
+      windows: +$('#windowsIn').value || 0,
+      patio:   +$('#patioIn').value   || 0,
+      entry:   +$('#entryIn').value   || 0,
+      timestamp: new Date().toISOString()
+    };
+
+    const qArr = JSON.parse(localStorage.getItem(QUOTES) || '[]');
+    if (currentQuoteIndex !== null && qArr[currentQuoteIndex]) {
+      qArr[currentQuoteIndex] = quote;    // overwrite existing
+    } else {
+      qArr.push(quote);                   // add new
+    }
+    localStorage.setItem(QUOTES, JSON.stringify(qArr));
+    loadQuotes();
+    currentQuoteIndex = null;             // reset tracker
+    $('#clientNameDisplay').textContent = quote.name ? 'Client: ' + quote.name : '';
+
     // reset discount reveal state
     revealStep = 0;
     baseOn = false;
@@ -276,7 +353,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     };
   }
 
-  $('#backToAdmin').onclick=()=>{if(prompt('Password?')===(localStorage.getItem(PWD)||'admin')){$('#clientPanel').classList.add('hidden');$('#adminPanel').classList.remove('hidden');}};
+  $('#backToAdmin').onclick=()=>{
+    if(prompt('Password?')===(localStorage.getItem(PWD)||'admin')){
+      $('#clientPanel').classList.add('hidden');$('#adminPanel').classList.remove('hidden');
+      currentQuoteIndex = null;
+    }
+  };
 
   const makePdf=()=>{const {jsPDF}=window.jspdf;const d=new jsPDF();let y=20;d.setFontSize(18);d.text('American Vision Windows',15,y);y+=10;d.setFontSize(12);d.text('Total: '+$('#projectTotal').textContent,15,y);y+=8;d.text('Savings: '+$('#savingsBadge').textContent.replace(' Savings',''),15,y);y+=8;d.text('Payment Options:',15,y);y+=6;['colMonthly','colSAC','colCash'].forEach(id=>{document.querySelectorAll('#'+id+' .optionCard').forEach(c=>{const h=c.querySelector('.optionHead').textContent;const a=c.querySelector('.payAmt').textContent;d.text(`- ${h}: ${a}`,20,y);y+=6;});});d.save('avw-quote.pdf');};
   $('#printBtn').onclick=()=>window.print();
