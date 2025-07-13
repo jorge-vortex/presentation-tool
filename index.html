@@ -1,119 +1,195 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>AVW Price Presenter</title>
-<link rel="stylesheet" href="tailwind.min.css"/>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>AVW Price Presenter</title>
+  <!-- Tailwind CDN for easy loading (no local file needed) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Your custom CSS (overrides/extends Tailwind) */
+    .card { background: #fff; border: 1px solid #d1d5db; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,.06); padding: 1.25rem 1.5rem; }
+    .pill { display: inline-block; border-radius: 9999px; padding: 0.25rem 1.5rem; font-weight: 600; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+    .scroll-col { display: flex; flex-direction: column; gap: 2rem; }
+    .togHeading { cursor: pointer; font-weight: 600; font-size: 1.125rem; user-select: none; display: block; } /* Force block to prevent inline shift */
+    .inactiveDisc { color: #9ca3af; font-style: italic; text-decoration: line-through; }
+    .optionCard { background: #fff; border: 1px solid #d1d5db; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,.05); overflow: hidden; }
+    .optionHead { background: #1e3a8a; color: #fff; text-align: center; font-size: 0.875rem; font-weight: 600; padding: 0.5rem 0; }
+    .optionBody { display: flex; flex-direction: column; align-items: center; padding: 1.5rem 1rem; }
+    .payAmt { font-size: 2.25rem; font-weight: 800; color: #1e3a8a; }
+    .payTerm { font-size: 0.75rem; color: #4b5563; margin-top: 0.25rem; }
+    .totalLine { margin: 1.5rem 0 2.5rem; text-align: right; font-size: 1.875rem; font-weight: 800; color: #1e3a8a; }
+    .fade-in { animation: fadeIn 0.5s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .tooltip { position: relative; display: inline-block; }
+    .tooltip .tooltiptext { visibility: hidden; width: 200px; background-color: #555; color: #fff; text-align: center; border-radius: 6px; padding: 5px; position: absolute; z-index: 1; bottom: 125%; left: 50%; margin-left: -100px; opacity: 0; transition: opacity 0.3s; }
+    .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
 
-<style>
-/* ---------- basic helpers (pure CSS) ---------- */
-.card{background:#fff;border:1px solid #d1d5db;border-radius:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:1.25rem 1.5rem}
-.pill{display:inline-block;border-radius:9999px;padding:.25rem 1.5rem;font-weight:600;color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.scroll-col{display:flex;flex-direction:column;gap:2rem}
-.togHeading{cursor:pointer;font-weight:600;font-size:1.125rem;user-select:none}
-.inactiveDisc{color:#9ca3af;font-style:italic;text-decoration:line-through}
+    /* Reserve space for discount rows to prevent layout shift */
+    #baseRow, #extraRow { min-height: 1.5rem; display: block; } /* Ensure block and min height */
 
-/* ---------- boxed payment tile ---------- */
-.optionCard{background:#fff;border:1px solid #d1d5db;border-radius:1rem;box-shadow:0 4px 6px rgba(0,0,0,.05);overflow:hidden}
-.optionHead{background:#1e3a8a;color:#fff;text-align:center;font-size:.875rem;font-weight:600;padding:.5rem 0}
-.optionBody{display:flex;flex-direction:column;align-items:center;padding:1.5rem 1rem}
-.payAmt{font-size:2.25rem;font-weight:800;color:#1e3a8a}
-.payTerm{font-size:.75rem;color:#4b5563;margin-top:.25rem}
+    /* Add this to actually hide elements */
+    .hidden { display: none !important; }
 
-/* prettier total line */
-.totalLine{
-  margin:1.5rem 0 2.5rem;   /* top & bottom breathing room */
-  text-align:right;
-  font-size:1.875rem;       /* text-2xl */
-  font-weight:800;
-  color:#1e3a8a;
-}
-</style>
+#searchResults::-webkit-scrollbar{height:6px;width:6px;}
+#searchResults::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
+  </style>
 </head>
 
 <body class="bg-gray-50 font-sans pb-16">
 
-<!--  ADMIN PANEL  -->
+<!-- ADMIN PANEL -->
 <div id="adminPanel" class="max-w-5xl mx-auto bg-white rounded-2xl shadow-xl p-8 space-y-8">
   <header class="flex items-center gap-4">
-    <img src="american-vision-windows-logo.png" alt="logo" class="h-12">
+    <img src="american-vision-windows-logo.png" alt="American Vision Windows logo" class="h-12" aria-label="Company Logo">
     <h1 class="text-3xl font-extrabold text-blue-800">2025 Project Pricing (Admin)</h1>
   </header>
 
-  <!-- price / discounts -->
-  <div class="grid lg:grid-cols-4 gap-6">
+  <!-- CLIENT INFORMATION -->
+  <h2 class="text-xl font-semibold text-blue-800">Client Information</h2>
+  <div class="grid lg:grid-cols-3 gap-6">
     <div class="card space-y-1">
-      <label class="text-xs font-semibold text-gray-600">Client Name</label>
-      <input id="clientName" type="text" class="w-full border rounded-lg p-2" placeholder="John&nbsp;Doe">
+      <label class="text-xs font-semibold text-gray-600">Client Name *</label>
+      <input id="clientName" class="w-full border rounded-lg p-2 clientName" placeholder="John Doe" aria-required="true">
     </div>
     <div class="card space-y-1">
-      <label class="text-xs font-semibold text-gray-600">Desired Final Price ($)</label>
-      <input id="finalPrice" type="number" min="0" step="0.01" class="w-full border rounded-lg p-2" placeholder="15000">
+      <label class="text-xs font-semibold text-gray-600">Phone</label>
+      <input id="clientPhone" class="w-full border rounded-lg p-2" placeholder="(555) 123‑4567">
     </div>
     <div class="card space-y-1">
-      <label class="text-xs font-semibold text-gray-600">Monthly Discount %</label>
-      <input id="baseDiscount" type="number" min="0" step="0.01" class="w-full border rounded-lg p-2" placeholder="20">
+      <label class="text-xs font-semibold text-gray-600">Email</label>
+      <input id="clientEmail" class="w-full border rounded-lg p-2" placeholder="john@example.com">
+    </div>
+    <div class="card space-y-1 lg:col-span-2">
+      <label class="text-xs font-semibold text-gray-600">Street Address</label>
+      <input id="clientStreet" class="w-full border rounded-lg p-2" placeholder="123 Main St">
     </div>
     <div class="card space-y-1">
-      <label class="text-xs font-semibold text-gray-600">Sales Cost Savings Program %</label>
-      <input id="extraDiscount" type="number" min="0" step="0.01" class="w-full border rounded-lg p-2" placeholder="5">
+      <label class="text-xs font-semibold text-gray-600">City *</label>
+      <input id="clientCity" class="w-full border rounded-lg p-2" placeholder="Tucson" aria-required="true">
+    </div>
+    <div class="card space-y-1">
+      <label class="text-xs font-semibold text-gray-600">ZIP</label>
+      <input id="clientZip" class="w-full border rounded-lg p-2" placeholder="85701">
     </div>
   </div>
-
-  <!-- counts -->
-  <h2 class="text-xl font-semibold text-blue-800">Product Counts</h2>
-  <div class="grid sm:grid-cols-3 md:max-w-2xl gap-4">
-    <div class="card"><label class="text-xs font-semibold">Windows</label><input id="windowsIn" type="number" min="0" step="1" class="w-full border rounded-lg p-2"></div>
-    <div class="card"><label class="text-xs font-semibold">Patio Doors</label><input id="patioIn" type="number" min="0" step="1" class="w-full border rounded-lg p-2"></div>
-    <div class="card"><label class="text-xs font-semibold">Entry Doors</label><input id="entryIn" type="number" min="0" step="1" class="w-full border rounded-lg p-2"></div>
+  <div id="quoteForms" class="space-y-8">
+    <!-- Initial quote form -->
+    <div class="quote-form border-b pb-4">
+      <div class="flex items-center gap-4 mb-4">
+        <input
+          type="text"
+          class="quote-name flex-grow w-auto text-lg font-bold text-blue-800 border border-gray-300 rounded-lg p-2"
+          value="Quote 1"
+          aria-label="Quote Name (click to edit)">
+        <button type="button"
+                class="deleteQuote bg-red-600 hover:bg-red-700 text-white rounded-lg px-3 py-1"
+                title="Delete this quote">✖</button>
+      </div>
+      <div class="grid lg:grid-cols-4 gap-6">
+        <div class="card space-y-1">
+          <label class="text-xs font-semibold text-gray-600">Desired Final Price ($)</label>
+          <input class="finalPrice w-full border rounded-lg p-2" type="number" min="0" step="0.01" placeholder="15000" aria-required="true" id="finalPrice">
+        </div>
+        <div class="card space-y-1">
+          <label class="text-xs font-semibold text-gray-600">Monthly Discount %</label>
+          <input class="baseDiscount w-full border rounded-lg p-2" type="number" min="0" step="0.01" placeholder="20" aria-required="true" id="baseDiscount">
+        </div>
+        <div class="card space-y-1">
+          <label class="text-xs font-semibold text-gray-600">Sales Cost Savings Program %</label>
+          <input class="extraDiscount w-full border rounded-lg p-2" type="number" min="0" step="0.01" placeholder="5" id="extraDiscount">
+        </div>
+      </div>
+      <h4 class="text-md font-semibold text-blue-800 mt-4">Product Counts</h4>
+      <div class="grid sm:grid-cols-3 md:max-w-2xl gap-4">
+        <div class="card">
+          <label class="text-xs font-semibold">Windows</label>
+          <input class="windowsIn w-full border rounded-lg p-2" type="number" min="0" step="1" id="windowsIn">
+        </div>
+        <div class="card">
+          <label class="text-xs font-semibold">Patio Doors</label>
+          <input class="patioIn w-full border rounded-lg p-2" type="number" min="0" step="1" id="patioIn">
+        </div>
+        <div class="card">
+          <label class="text-xs font-semibold">Entry Doors</label>
+          <input class="entryIn w-full border rounded-lg p-2" type="number" min="0" step="1" id="entryIn">
+        </div>
+      </div>
+    </div>
   </div>
+  <button id="addQuote" class="bg-blue-700 hover:bg-blue-800 text-white rounded-lg px-5 py-1.5">Add Quote</button>
 
   <!-- plans -->
   <h2 class="text-xl font-semibold text-blue-800">Financing Plans</h2>
-  <table class="w-full text-sm mb-2"><thead><tr class="bg-gray-100 text-gray-700"><th class="px-3 py-2">Name</th><th class="px-3 py-2">Term</th><th class="px-3 py-2">APR%</th><th class="px-3 py-2">Action</th></tr></thead><tbody id="plansBody"></tbody></table>
-  <div class="grid grid-cols-3 md:max-w-xl gap-2">
+  <table class="w-full text-sm mb-2">
+    <thead>
+      <tr class="bg-gray-100 text-gray-700">
+        <th class="px-3 py-2">Name</th>
+        <th class="px-3 py-2">Term</th>
+        <th class="px-3 py-2">APR%</th>
+        <th class="px-3 py-2">Action</th>
+      </tr>
+    </thead>
+    <tbody id="plansBody"></tbody>
+  </table>
+  <div class="w-full grid grid-cols-4 gap-2 mt-2">
     <input id="planName" class="border rounded-lg p-2" placeholder="12 Mo SAC">
     <input id="planTerm" type="number" min="1" class="border rounded-lg p-2" placeholder="12">
-    <input id="planApr"  type="number" min="0" step="0.01" class="border rounded-lg p-2" placeholder="0">
+    <input id="planApr" type="number" min="0" step="0.01" class="border rounded-lg p-2" placeholder="0">
+    <div></div> <!-- empty cell to align with Action column -->
   </div>
   <button id="addPlan" class="mt-3 bg-blue-700 hover:bg-blue-800 text-white rounded-lg px-5 py-1.5">Add / Update Plan</button>
 
-  <!-- tiers -->
-  <h2 class="text-xl font-semibold text-blue-800">Saved Discount Tiers</h2>
-  <div class="flex gap-3 items-center">
-    <select id="savedTiers" class="border rounded-lg p-2 flex-grow"></select>
-    <button id="deleteTier" class="bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-1">Delete</button>
-  </div>
-  <button id="saveTier" class="mt-3 bg-green-600 hover:bg-green-700 text-white rounded-lg px-5 py-1.5">Save Current Tier</button>
 
-  <!-- saved quotes -->
-  <h2 class="text-xl font-semibold text-blue-800 mt-8">Saved Quotes</h2>
-  <div class="flex gap-3 items-center">
-    <select id="savedQuotes" class="border rounded-lg p-2 flex-grow"></select>
-    <button id="loadQuote"   class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-1">Load</button>
-    <button id="removeQuote" class="bg-red-600  hover:bg-red-700  text-white rounded-lg px-4 py-1">Delete</button>
-  </div>
 
+  <!-- QUOTE SEARCH PANEL -->
+  <div id="quoteSearchPanel" class="hidden mt-6 border rounded-lg p-4 bg-gray-50 space-y-3">
+    <div class="flex items-center gap-3">
+      <input
+        id="quoteSearchInput"
+        type="text"
+        placeholder="Search by name, city, address, or phone"
+        class="flex-grow p-2 border rounded-lg"
+      />
+      <button id="closeSearch"
+              class="bg-red-600 hover:bg-red-700 text-white rounded-lg px-3 py-1">
+        ✖
+      </button>
+    </div>
+    <div id="searchResults"
+         class="space-y-2 max-h-64 overflow-y-auto border-t pt-3"></div>
+  </div>
   <div class="flex justify-between gap-4 pt-4">
+    <button id="searchQuotes" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl py-3 text-lg font-semibold">Search Quotes</button>
     <button id="presentBtn" class="flex-1 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl py-3 text-lg font-semibold">Present</button>
     <button id="resetAdmin" class="bg-gray-400 hover:bg-gray-500 text-white rounded-xl px-6 py-3">Reset Inputs</button>
   </div>
 </div>
 
-<!--  CLIENT PANEL  -->
+<!-- CLIENT PANEL -->
 <div id="clientPanel" class="hidden max-w-5xl mx-auto bg-white rounded-2xl shadow-xl p-6 relative">
   <header class="flex items-center gap-4 pb-4 border-b border-gray-200">
-    <img src="american-vision-windows-logo.png" alt="logo" class="h-10">
-    <h1 class="text-2xl font-extrabold text-blue-800 flex-grow">2025 Project Pricing</h1>
-    <h2 id="clientNameDisplay" class="text-lg font-semibold text-blue-700"></h2>
+    <img src="american-vision-windows-logo.png" alt="logo" class="h-20" aria-label="Company Logo">
+
+    <!-- Heading block -->
+    <div class="flex flex-col flex-grow">
+      <h1 class="text-2xl font-extrabold text-blue-800">2025 Project Pricing</h1>
+      <h2 id="clientNameDisplay" class="text-2xl font-extrabold text-blue-800"></h2>
+    </div>
     <div class="flex gap-2 text-xl">
-      <button id="backToAdmin" class="bg-gray-100 hover:bg-gray-200 rounded-full w-9 h-9 flex items-center justify-center">↺</button>
-      <button id="emailBtn"  class="bg-gray-100 hover:bg-gray-200 rounded-full w-9 h-9 flex items-center justify-center">✉️</button>
-      <button id="printBtn"  class="bg-gray-100 hover:bg-gray-200 rounded-full w-9 h-9 flex items-center justify-center">🖨</button>
+      <button id="backToAdmin" class="bg-gray-100 hover:bg-gray-200 rounded-full w-9 h-9 flex items-center justify-center" aria-label="Back to Admin">↺</button>
+      <button id="emailBtn" class="bg-gray-100 hover:bg-gray-200 rounded-full w-9 h-9 flex items-center justify-center" aria-label="Email Quote">✉️</button>
+      <button id="printBtn" class="bg-gray-100 hover:bg-gray-200 rounded-full w-9 h-9 flex items-center justify-center" aria-label="Print Quote">🖨</button>
     </div>
   </header>
 
+  <div class="flex justify-center gap-4 mb-4">
+    <button id="prevQuote" class="bg-gray-200 hover:bg-gray-300 rounded-lg px-4 py-2">←</button>
+    <span id="quoteIndex" class="text-lg font-semibold"></span>
+    <button id="nextQuote" class="bg-gray-200 hover:bg-gray-300 rounded-lg px-4 py-2">→</button>
+  </div>
+<h2 id="quoteNameDisplay"
+    class="text-xl font-bold text-blue-800 mt-2 mb-1 hidden"></h2>
   <div id="savingsBadge" class="pill bg-green-600 mx-auto mt-6 text-lg">$0 Savings</div>
 
   <div class="grid md:grid-cols-2 gap-10 pt-8">
@@ -125,16 +201,17 @@
       </div>
     </section>
     <section class="space-y-5 text-lg">
-      <p id="retailRow" class="togHeading cursor-pointer">
-        Retail&nbsp;Price:&nbsp;<span id="retailPrice" class="font-semibold"></span>
+      <p id="retailRow" class="togHeading cursor-pointer tooltip">
+        Retail Price: <span id="retailPrice" class="font-semibold"></span>
+        <span class="tooltiptext">Click to reveal Monthly Discount</span>
       </p>
-      <p id="baseRow" class="togHeading inactiveDisc hidden">Monthly Discount <span id="baseInfo"  class="hidden"></span></p>
-      <p id="extraRow" class="togHeading inactiveDisc hidden">Sales Cost Savings Program <span id="extraInfo" class="hidden"></span></p>
+      <p id="baseRow" class="togHeading inactiveDisc hidden tooltip">Monthly Discount: <span id="baseInfo"></span><span class="tooltiptext">Click to toggle on/off</span></p>
+      <p id="extraRow" class="togHeading inactiveDisc hidden tooltip">Sales Cost Savings Program: <span id="extraInfo"></span><span class="tooltiptext">Click to toggle on/off</span></p>
     </section>
   </div>
 
   <div class="totalLine">
-    Project&nbsp;Total&nbsp;After&nbsp;Discounts:&nbsp;<span id="projectTotal"></span>
+    Project Total After Discounts: <span id="projectTotal"></span>
   </div>
 
   <!-- clickable heading -->
@@ -145,224 +222,629 @@
   <!-- payment tiles start hidden -->
   <section id="paymentSection" class="pt-10 hidden">
     <div class="grid gap-8 md:grid-cols-3">
-      <div><h3 class="text-center text-gray-700 font-semibold mb-3">Monthly Payments</h3><div id="colMonthly" class="scroll-col"></div></div>
-      <div><h3 class="text-center text-gray-700 font-semibold mb-3">SAC (Same-As-Cash)</h3><div id="colSAC" class="scroll-col"></div></div>
-      <div><h3 class="text-center text-gray-700 font-semibold mb-3">Cash 50 / 50</h3><div id="colCash" class="scroll-col"></div></div>
+      <div>
+        <h3 id="monthlyToggle" class="text-center text-gray-700 font-semibold mb-3 cursor-pointer">Monthly Payments</h3>
+        <div id="colMonthly" class="scroll-col"></div>
+      </div>
+      <div>
+        <h3 id="sacToggle" class="text-center text-gray-700 font-semibold mb-3 cursor-pointer">SAC (Same-As-Cash)</h3>
+        <div id="colSAC" class="scroll-col"></div>
+      </div>
+      <div>
+        <h3 class="text-center text-gray-700 font-semibold mb-3">Cash 50 / 50</h3>
+        <div id="colCash" class="scroll-col"></div>
+      </div>
     </div>
   </section>
 </div>
 
 <script src="jspdf.umd.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded',()=>{
-  /* helpers */
-  const $=sel=>document.querySelector(sel);
-  const fmt = n => '$' + Math.round(n).toLocaleString();   // always whole dollars
+document.addEventListener('DOMContentLoaded', () => {
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => document.querySelectorAll(sel);
+  const fmt = n => '$' + Math.round(n).toLocaleString();
+
   const pmt = (P, t, a) => {
-    const raw = a ? P*(a/100/12)/(1-Math.pow(1+a/100/12,-t)) : P/t;
-    return Math.round(raw);            // round to nearest dollar
+    const Pc = Math.round(P * 100);
+    if (!a) return Math.round(Pc / t) / 100;
+    const r = a / 100 / 12;
+    const paymentCents = Pc * r / (1 - Math.pow(1 + r, -t));
+    return Math.round(paymentCents / 100);
   };
 
-  const TIER='ppt_tiers',PLAN='ppt_plans',PWD='ppt_pwd';
-  const QUOTES = 'ppt_quotes';
-  if(!localStorage.getItem(PWD))localStorage.setItem(PWD,'admin');
+  const TIER = 'ppt_tiers', PLAN = 'ppt_plans', PWD = 'ppt_pwd', QUOTES = 'ppt_quotes';
+  if (!localStorage.getItem(PWD)) localStorage.setItem(PWD, 'admin');
 
-  /* tier & plan loaders (unchanged) */
-  const loadTiers=()=>{const l=JSON.parse(localStorage.getItem(TIER)||'[]');$('#savedTiers').innerHTML='';l.forEach((v,i)=>$('#savedTiers').insertAdjacentHTML('beforeend',`<option value="${i}">${v.base}% + ${v.extra}%</option>`));};
-  const loadPlans=()=>{const body=$('#plansBody');body.innerHTML='';JSON.parse(localStorage.getItem(PLAN)||'[]').forEach((p,i)=>body.insertAdjacentHTML('beforeend',`<tr><td class="px-3 py-1">${p.name}</td><td class="px-3 py-1">${p.term}</td><td class="px-3 py-1">${p.apr}</td><td class="px-3 py-1"><button data-i="${i}" class="delPlan text-red-600">Del</button></td></tr>`));};
-  loadTiers();loadPlans();
-
-  const loadQuotes = () => {
-    const arr = JSON.parse(localStorage.getItem(QUOTES) || '[]');
-    const sel = $('#savedQuotes');
-    if (!sel) return;
+  function loadTiers() {
+    const sel = document.querySelector('#savedTiers');
+    if (!sel) return; // Tiers UI was removed
+    const l = JSON.parse(localStorage.getItem(TIER) || '[]');
     sel.innerHTML = '';
-    arr.forEach((q,i) =>
+    l.forEach((v, i) =>
       sel.insertAdjacentHTML('beforeend',
-        `<option value="${i}">${q.name || 'Unnamed'} – ${fmt(q.final)} – ${q.windows||0}W ${q.patio||0}P ${q.entry||0}E</option>`));
-  };
-  loadQuotes();
+        `<option value="${i}">${v.base}% + ${v.extra}%</option>`));
+  }
 
-  $('#saveTier').onclick=()=>{const b=+$('#baseDiscount').value,e=+$('#extraDiscount').value;if(!b&&!e)return alert('Enter discounts');const l=JSON.parse(localStorage.getItem(TIER)||'[]');l.push({base:b,extra:e});localStorage.setItem(TIER,JSON.stringify(l));loadTiers();};
-  $('#deleteTier').onclick=()=>{const idx=+$('#savedTiers').value;const l=JSON.parse(localStorage.getItem(TIER)||'[]');l.splice(idx,1);localStorage.setItem(TIER,JSON.stringify(l));loadTiers();};
-  $('#savedTiers').onchange=e=>{const t=JSON.parse(localStorage.getItem(TIER)||'[]')[+e.target.value];if(t){$('#baseDiscount').value=t.base;$('#extraDiscount').value=t.extra;}};
+  function loadPlans() {
+    const body = $('#plansBody');
+    body.innerHTML = '';
+    JSON.parse(localStorage.getItem(PLAN) || '[]').forEach((p, i) => {
+      body.insertAdjacentHTML('beforeend', `<tr><td class="px-3 py-1">${p.name}</td><td class="px-3 py-1">${p.term}</td><td class="px-3 py-1">${p.apr}</td><td class="px-3 py-1"><button data-i="${i}" class="delPlan text-red-600">Del</button></td></tr>`);
+    });
+  }
 
-  $('#addPlan').onclick=()=>{const n=$('#planName').value.trim(),t=+$('#planTerm').value,a=+$('#planApr').value;if(!n||!t)return alert('Name & term');const l=JSON.parse(localStorage.getItem(PLAN)||'[]');const idx=l.findIndex(p=>p.name===n);const obj={name:n,term:t,apr:a};idx>-1?l.splice(idx,1,obj):l.push(obj);localStorage.setItem(PLAN,JSON.stringify(l));loadPlans();$('#planName').value=$('#planTerm').value=$('#planApr').value='';};
-  $('#plansBody').onclick=e=>{if(e.target.classList.contains('delPlan')){const idx=+e.target.dataset.i;const l=JSON.parse(localStorage.getItem(PLAN)||'[]');l.splice(idx,1);localStorage.setItem(PLAN,JSON.stringify(l));loadPlans();}};
 
-  $('#resetAdmin').onclick=()=>{
-    document.querySelectorAll('#adminPanel input').forEach(i=>i.value='');
+  // loadTiers(); // Tiers UI removed
+  loadPlans();
+
+  // Add Quote functionality
+  $('#addQuote').addEventListener('click', () => {
+    const quoteForms = $$('.quote-form');
+    const newIndex = quoteForms.length;
+    const newForm  = quoteForms[0].cloneNode(true);
+    const qInput   = newForm.querySelector('.quote-name'); // keep reference
+    // Pull shared values from Quote 1
+    const baseVal   = $('#baseDiscount').value;
+    const extraVal  = $('#extraDiscount').value;
+
+    // Clear (or copy) inputs and strip IDs to avoid duplicates
+    newForm.querySelectorAll('input').forEach(input => {
+      if (input.classList.contains('quote-name')) return; // keep default label
+      // Every cloned element must lose its ID
+      input.removeAttribute('id');
+
+      if (input.classList.contains('baseDiscount')) input.value = baseVal;
+      else if (input.classList.contains('extraDiscount')) input.value = extraVal;
+      else                                               input.value = '';    // start empty
+    });
+    qInput.value = `Quote ${newIndex + 1}`;
+    $('#quoteForms').appendChild(newForm);
+  });
+
+  // Delete a quote form (except the first) via event delegation
+  $('#quoteForms').addEventListener('click', e => {
+    if (!e.target.classList.contains('deleteQuote')) return;
+    const form = e.target.closest('.quote-form');
+    if (!form) return;
+    // Prevent deleting the very first form
+    if ($('#quoteForms').children.length === 1) {
+      alert('You must keep at least one quote.');
+      return;
+    }
+    form.remove();
+  });
+
+
+  $('#addPlan').addEventListener('click', () => {
+    const n = $('#planName').value.trim(), t = +$('#planTerm').value, a = +$('#planApr').value;
+    if (!n || !t || t <= 0 || a < 0) return alert('Valid name, term (>0), and APR (>=0) required');
+    const l = JSON.parse(localStorage.getItem(PLAN) || '[]');
+    const idx = l.findIndex(p => p.name === n);
+    const obj = { name: n, term: t, apr: a };
+    if (idx > -1) l.splice(idx, 1, obj);
+    else l.push(obj);
+    localStorage.setItem(PLAN, JSON.stringify(l));
+    loadPlans();
+    $('#planName').value = $('#planTerm').value = $('#planApr').value = '';
+  });
+
+  $('#plansBody').addEventListener('click', e => {
+    if (e.target.classList.contains('delPlan')) {
+      const idx = +e.target.dataset.i;
+      const l = JSON.parse(localStorage.getItem(PLAN) || '[]');
+      l.splice(idx, 1);
+      localStorage.setItem(PLAN, JSON.stringify(l));
+      loadPlans();
+    }
+  });
+
+  $('#resetAdmin').addEventListener('click', () => {
+    document.querySelectorAll('#adminPanel input').forEach(i => i.value = '');
     currentQuoteIndex = null;
-  };
+  });
 
-  $('#loadQuote').onclick = () => {
-    const arr = JSON.parse(localStorage.getItem(QUOTES) || '[]');
-    const idx = +$('#savedQuotes').value;
-    const q   = arr[idx];
+  let currentQuoteIndex = null;
+
+
+  let retail = 0, baseAmt = 0, extraAmt = 0, basePct = 0, extraPct = 0, finalPrice = 0, baseOn = false, extraOn = false;
+  let revealStep = 0;
+  // Persistent reveal state across quotes
+  let baseRevealed   = false;   // Monthly Discount row shown?
+  let extraRevealed  = false;   // Sales Cost Savings row shown?
+  let paymentVisible = false;   // Payment Options section expanded?
+  let paymentsRevealed = false; // All payment tiles revealed?
+  // --- Presentation navigation vars & helpers ---
+  let presentationQuotes = [];
+  let presentationCurrent = 0;
+
+  function showPresentationQuote(idx) {
+    const q = presentationQuotes[idx];
     if (!q) return;
 
-    currentQuoteIndex = idx;         // remember which quote we loaded
+    finalPrice = q.final;
+    basePct = q.basePct;
+    extraPct = q.extraPct;
 
-    $('#clientName').value   = q.name;
-    $('#finalPrice').value   = q.final;
-    $('#baseDiscount').value = q.basePct;
-    $('#extraDiscount').value= q.extraPct;
-    $('#windowsIn').value    = q.windows ?? 0;
-    $('#patioIn').value      = q.patio   ?? 0;
-    $('#entryIn').value      = q.entry   ?? 0;
-    $('#clientNameDisplay').textContent = q.name ? 'Client: ' + q.name : '';
-  };
+    const denom = (1 - basePct / 100) * (1 - extraPct / 100);
+    retail = Math.round((finalPrice / denom) * 100) / 100;
+    baseAmt = Math.round(retail * (basePct / 100) * 100) / 100;
+    extraAmt = Math.round((retail - baseAmt - finalPrice) * 100) / 100;
 
-  $('#removeQuote').onclick = () => {
-    const arr = JSON.parse(localStorage.getItem(QUOTES) || '[]');
-    arr.splice(+$('#savedQuotes').value,1);
-    localStorage.setItem(QUOTES, JSON.stringify(arr));
-    loadQuotes();
-  };
+    $('#clientNameDisplay').textContent = q.name || '';
+    $('#quoteNameDisplay').textContent = q.label || '';
+    $('#quoteNameDisplay').classList.toggle('hidden', !q.label);
+    $('#windowsCount').textContent = q.windows || 0;
+    $('#patioCount').textContent = q.patio || 0;
+    $('#entryCount').textContent = q.entry || 0;
+    $('#retailPrice').textContent = fmt(retail);
 
-  /* presentation vars */
-  let retail=0,baseAmt=0,extraAmt=0,basePct=0,extraPct=0,finalPrice=0,baseOn=false,extraOn=false,currentQuoteIndex=null;
+    // Apply persistent visibility from global flags
+    $('#paymentSection').classList.toggle('hidden', !paymentVisible);
+    if (!baseRevealed)       revealStep = 0;
+    else if (!extraRevealed) revealStep = 1;
+    else                     revealStep = 2;
+    refreshRows();
+    // Restore payment tiles if they were fully revealed
+    if (paymentVisible && paymentsRevealed) {
+      document.querySelectorAll('#colMonthly .optionCard, #colSAC .optionCard')
+              .forEach(c => c.classList.remove('hidden'));
+      monthlyRevealStep = monthlyTiles.length;
+      sacRevealStep     = sacTiles.length;
+    }
 
-  let revealStep = 0;  // 0 = nothing shown, 1 = base shown, 2 = both shown
-
-  const retailClick = $('#retailRow');
-  if (retailClick) {
-    retailClick.onclick = () => {
-      if (revealStep === 0) {
-        baseOn = true;
-        $('#baseRow').classList.remove('hidden');
-        refreshRows();
-        revealStep = 1;
-      } else if (revealStep === 1) {
-        extraOn = true;
-        $('#extraRow').classList.remove('hidden');
-        refreshRows();
-        revealStep = 2;
-      }
-    };
+    $('#quoteIndex').textContent = `${idx + 1} / ${presentationQuotes.length}`;
   }
 
-  // Add baseRow and extraRow click handlers
-  const baseClick = $('#baseRow');
-  const extraClick = $('#extraRow');
+  // Prev / Next navigation
+  $('#prevQuote').addEventListener('click', () => {
+    if (presentationQuotes.length < 2) return;
+    presentationCurrent = (presentationCurrent - 1 + presentationQuotes.length) % presentationQuotes.length;
+    showPresentationQuote(presentationCurrent);
+  });
 
-  if (baseClick) {
-    baseClick.onclick = () => {
-      if (baseOn) {
-        baseOn = false;
-        refreshRows();
-      } else {
-        baseOn = true;
-        refreshRows();
-      }
-    };
-  }
+  $('#nextQuote').addEventListener('click', () => {
+    if (presentationQuotes.length < 2) return;
+    presentationCurrent = (presentationCurrent + 1) % presentationQuotes.length;
+    showPresentationQuote(presentationCurrent);
+  });
 
-  if (extraClick) {
-    extraClick.onclick = () => {
-      if (extraOn) {
-        extraOn = false;
-        refreshRows();
-      } else {
-        extraOn = true;
-        refreshRows();
-      }
-    };
-  }
+  $('#retailRow').addEventListener('click', () => {
+    if (revealStep === 0) {
+      baseOn = true;
+      baseRevealed = true;
+      $('#baseRow').classList.remove('hidden');
+      $('#baseRow').classList.add('fade-in');
+      setTimeout(() => $('#baseRow').classList.remove('fade-in'), 500);
+      refreshRows();
+      revealStep = 1;
+    } else if (revealStep === 1) {
+      extraOn = true;
+      extraRevealed = true;
+      $('#extraRow').classList.remove('hidden');
+      $('#extraRow').classList.add('fade-in');
+      setTimeout(() => $('#extraRow').classList.remove('fade-in'), 500);
+      refreshRows();
+      revealStep = 2;
+    }
+  });
 
-  const refreshRows=()=>{
-    $('#baseInfo').textContent  = baseOn?` – ${basePct}% (–${fmt(baseAmt)})`:'';
-    $('#extraInfo').textContent = extraOn?` – ${extraPct}% (–${fmt(extraAmt)})`:'';
-    $('#baseInfo').classList.toggle('hidden',!baseOn);
-    $('#extraInfo').classList.toggle('hidden',!extraOn);
-    $('#baseRow').classList.toggle('inactiveDisc',!baseOn);
-    $('#extraRow').classList.toggle('inactiveDisc',!extraOn);
-    $('#extraRow').style.pointerEvents=baseOn?'auto':'none';
-    const saved=(baseOn?baseAmt:0)+(extraOn?extraAmt:0);
-    $('#savingsBadge').textContent=fmt(saved)+' Savings';
-    const total=retail-saved;
-    $('#projectTotal').textContent=fmt(total);
+  $('#baseRow').addEventListener('click', () => {
+    baseOn = !baseOn;
+    refreshRows();
+  });
+
+  $('#extraRow').addEventListener('click', () => {
+    extraOn = !extraOn;
+    refreshRows();
+  });
+
+  function refreshRows() {
+    // Keep discount rows visible according to global flags
+    $('#baseRow').classList.toggle('hidden', !baseRevealed);
+    $('#extraRow').classList.toggle('hidden', !extraRevealed);
+    $('#baseInfo').textContent = baseOn ? `${basePct}% Off (-${fmt(baseAmt)})` : '';
+    $('#extraInfo').textContent = extraOn ? `${extraPct}% Off (-${fmt(extraAmt)})` : '';
+    $('#baseRow').classList.toggle('inactiveDisc', !baseOn);
+    $('#extraRow').classList.toggle('inactiveDisc', !extraOn);
+    const saved = (baseOn ? baseAmt : 0) + (extraOn ? extraAmt : 0);
+    $('#savingsBadge').textContent = fmt(saved) + ' Savings';
+    const total = retail - saved;
+    $('#projectTotal').textContent = fmt(total);
     buildPayments(total);
-  };
+  }
 
-  const buildPayments=pr=>{
-    $('#colMonthly').innerHTML=$('#colSAC').innerHTML=$('#colCash').innerHTML='';
-    JSON.parse(localStorage.getItem(PLAN)||'[]').forEach(p=>{
-      const tile=`<div class="optionCard"><div class="optionHead">${p.term} Mo • ${p.apr}% APR</div><div class="optionBody"><p class="payAmt">${fmt(pmt(pr,p.term,p.apr))}</p><p class="payTerm">per month</p></div></div>`;
-      (p.apr>0?$('#colMonthly'):$('#colSAC')).insertAdjacentHTML('beforeend',tile);
+  let monthlyRevealStep = 0;
+  let sacRevealStep = 0;
+  let monthlyTiles = [];
+  let sacTiles = [];
+
+  function buildPayments(pr) {
+    $('#colMonthly').innerHTML = $('#colSAC').innerHTML = $('#colCash').innerHTML = '';
+    let plans = JSON.parse(localStorage.getItem(PLAN) || '[]');
+    // Sort plans by term ascending (shortest term first = highest payment)
+    plans.sort((a, b) => a.term - b.term);
+
+    monthlyTiles = [];
+    sacTiles = [];
+
+    plans.forEach(p => {
+      const monthly = pmt(pr, p.term, p.apr);
+      const tile = `
+        <div class="optionCard hidden">
+          <div class="optionHead">${p.term} Mo • ${p.apr}% APR</div>
+          <div class="optionBody">
+            <p class="payAmt">${fmt(monthly)}</p>
+            <p class="payTerm">per month</p>
+          </div>
+        </div>`;
+      if (p.apr > 0) {
+        monthlyTiles.push(tile);
+      } else {
+        sacTiles.push(tile);
+      }
     });
-    $('#colCash').innerHTML=`<div class="optionCard"><div class="optionHead">Cash 50 / 50</div><div class="optionBody"><p class="payAmt">${fmt(pr/2)}</p><p class="payTerm">½ upfront & ½ at install</p></div></div>`;
-  };
 
-  $('#presentBtn').onclick=()=>{
-    finalPrice=+$('#finalPrice').value;basePct=+$('#baseDiscount').value;extraPct=+$('#extraDiscount').value;
-    if(!finalPrice)return alert('Enter final price');if(!basePct)return alert('Enter monthly discount %');
-    retail=Math.round(finalPrice/((1-basePct/100)*(1-extraPct/100))*100)/100;
-    retail = Math.round(retail);                 // force whole number retail
-    baseAmt = Math.round(retail * basePct / 100);
-    extraAmt = retail - baseAmt - Math.round(finalPrice);  // ensure exact final
+    // Append all hidden tiles
+    monthlyTiles.forEach(tile => $('#colMonthly').insertAdjacentHTML('beforeend', tile));
+    sacTiles.forEach(tile => $('#colSAC').insertAdjacentHTML('beforeend', tile));
 
-    // Save or update quote
-    const quote = {
+    // Cash is always shown
+    const half = Math.round(pr / 2);
+    $('#colCash').innerHTML = `
+      <div class="optionCard">
+        <div class="optionHead">Cash 50 / 50</div>
+        <div class="optionBody">
+          <p class="payAmt">${fmt(half)}</p>
+          <p class="payTerm">½ upfront & ½ at install</p>
+        </div>
+      </div>`;
+
+    // Reset reveal steps
+    monthlyRevealStep = 0;
+    sacRevealStep = 0;
+
+    // If user had already revealed all tiles, un-hide them again
+    if (paymentsRevealed) {
+      document.querySelectorAll('#colMonthly .optionCard, #colSAC .optionCard')
+              .forEach(c => c.classList.remove('hidden'));
+      monthlyRevealStep = monthlyTiles.length;
+      sacRevealStep     = sacTiles.length;
+    }
+
+    // Show first in each if exists
+    if (monthlyTiles.length > 0 && monthlyRevealStep === 0) {
+      $$('#colMonthly .optionCard')[0].classList.remove('hidden');
+      monthlyRevealStep = 1;
+    }
+    if (sacTiles.length > 0 && sacRevealStep === 0) {
+      $$('#colSAC .optionCard')[0].classList.remove('hidden');
+      sacRevealStep = 1;
+    }
+  }
+
+  // Monthly toggle
+  $('#monthlyToggle').addEventListener('click', () => {
+    if (monthlyRevealStep < monthlyTiles.length) {
+      $$('#colMonthly .optionCard')[monthlyRevealStep].classList.remove('hidden');
+      $$('#colMonthly .optionCard')[monthlyRevealStep].classList.add('fade-in');
+      setTimeout(() => $$('#colMonthly .optionCard')[monthlyRevealStep].classList.remove('fade-in'), 500);
+      monthlyRevealStep++;
+      if (monthlyRevealStep === monthlyTiles.length &&
+          sacRevealStep === sacTiles.length) paymentsRevealed = true;
+    }
+  });
+
+  // SAC toggle
+  $('#sacToggle').addEventListener('click', () => {
+    if (sacRevealStep < sacTiles.length) {
+      $$('#colSAC .optionCard')[sacRevealStep].classList.remove('hidden');
+      $$('#colSAC .optionCard')[sacRevealStep].classList.add('fade-in');
+      setTimeout(() => $$('#colSAC .optionCard')[sacRevealStep].classList.remove('fade-in'), 500);
+      sacRevealStep++;
+      if (monthlyRevealStep === monthlyTiles.length &&
+          sacRevealStep === sacTiles.length) paymentsRevealed = true;
+    }
+  });
+
+  function saveQuote() {
+    // Gather client info
+    const snapshot = {
       id: Date.now(),
       name: $('#clientName').value.trim(),
-      final: finalPrice,
-      basePct,
-      extraPct,
-      windows: +$('#windowsIn').value || 0,
-      patio:   +$('#patioIn').value   || 0,
-      entry:   +$('#entryIn').value   || 0,
-      timestamp: new Date().toISOString()
+      phone: $('#clientPhone').value.trim(),
+      email: $('#clientEmail').value.trim(),
+      address: {
+        street: $('#clientStreet').value.trim(),
+        city:   $('#clientCity').value.trim(),
+        zip:    $('#clientZip').value.trim()
+      },
+      timestamp: new Date().toISOString(),
+      quotes: []
     };
-
-    const qArr = JSON.parse(localStorage.getItem(QUOTES) || '[]');
-    if (currentQuoteIndex !== null && qArr[currentQuoteIndex]) {
-      qArr[currentQuoteIndex] = quote;    // overwrite existing
+    // Gather every quote-form
+    document.querySelectorAll('.quote-form').forEach(form => {
+      snapshot.quotes.push({
+        label: form.querySelector('.quote-name').value.trim(),
+        final: +form.querySelector('.finalPrice').value || 0,
+        basePct: +form.querySelector('.baseDiscount').value || 0,
+        extraPct: +form.querySelector('.extraDiscount').value || 0,
+        windows: +form.querySelector('.windowsIn').value || 0,
+        patio:   +form.querySelector('.patioIn').value   || 0,
+        entry:   +form.querySelector('.entryIn').value   || 0
+      });
+    });
+    // Save snapshot list
+    const arr = JSON.parse(localStorage.getItem(QUOTES) || '[]');
+    // Overwrite existing if editing, else append
+    if (currentQuoteIndex !== null && arr[currentQuoteIndex]) {
+      arr[currentQuoteIndex] = snapshot;
     } else {
-      qArr.push(quote);                   // add new
+      arr.push(snapshot);
+      currentQuoteIndex = arr.length - 1;
     }
-    localStorage.setItem(QUOTES, JSON.stringify(qArr));
-    loadQuotes();
-    currentQuoteIndex = null;             // reset tracker
-    $('#clientNameDisplay').textContent = quote.name ? 'Client: ' + quote.name : '';
-
-    // reset discount reveal state
-    revealStep = 0;
-    baseOn = false;
-    extraOn = false;
-    $('#baseRow').classList.add('hidden');
-    $('#extraRow').classList.add('hidden');
-
-    $('#retailPrice').textContent=fmt(retail);
-    $('#windowsCount').textContent=$('#windowsIn').value||0;
-    $('#patioCount').textContent  =$('#patioIn').value||0;
-    $('#entryCount').textContent  =$('#entryIn').value||0;
-
-    // buildPayments(finalPrice);   /* build tiles FIRST */  // REMOVED
-    $('#paymentSection').classList.add('hidden');   // keep hidden until clicked
-    refreshRows();
-    $('#adminPanel').classList.add('hidden');$('#clientPanel').classList.remove('hidden');
-  };
-
-  /* payment options toggle */
-  const payToggle = $('#paymentToggle');
-  if (payToggle) {
-    payToggle.onclick = () => {
-      const sec = $('#paymentSection');
-      if (sec) sec.classList.toggle('hidden');
-    };
+    localStorage.setItem(QUOTES, JSON.stringify(arr));
   }
 
-  $('#backToAdmin').onclick=()=>{
-    if(prompt('Password?')===(localStorage.getItem(PWD)||'admin')){
-      $('#clientPanel').classList.add('hidden');$('#adminPanel').classList.remove('hidden');
+  $('#presentBtn').addEventListener('click', () => {
+    // Validate the FIRST quote (ids point to Quote 1)
+    finalPrice = +$('#finalPrice').value;
+    basePct   = +$('#baseDiscount').value;
+    extraPct  = +$('#extraDiscount').value;
+    const clientName = $('#clientName').value.trim();
+    const city = $('#clientCity').value.trim();
+    if (!clientName || !city) return alert('Client name and city are required');
+    if (finalPrice <= 0 || isNaN(finalPrice)) return alert('Final price must be positive');
+    if (basePct <= 0 || basePct > 100 || extraPct < 0 || extraPct > 100)
+      return alert('Discounts must be between 0 and 100');
+
+    // If editing an existing quote, ask whether to overwrite or save as new
+    if (currentQuoteIndex !== null) {
+      const overwrite = confirm("A quote is currently loaded. Click OK to overwrite it, or Cancel to save as a new quote.");
+      if (!overwrite) {
+        // User chose to save as new
+        currentQuoteIndex = null;
+      }
+    }
+
+    // Save Quote 1 (your original logic)
+    saveQuote();
+
+    // Gather ALL visible quote forms for presentation
+    presentationQuotes = [];
+    document.querySelectorAll('.quote-form').forEach(form => {
+      const qFinal = +form.querySelector('.finalPrice').value;
+      if (!qFinal || isNaN(qFinal)) return; // skip empty/invalid
+      presentationQuotes.push({
+        label:  form.querySelector('.quote-name').value.trim() ||
+        `Quote ${presentationQuotes.length + 1}`,
+        name:   $('#clientName').value.trim(),
+        final:  qFinal,
+        basePct:+form.querySelector('.baseDiscount').value || 0,
+        extraPct:+form.querySelector('.extraDiscount').value || 0,
+        windows:+form.querySelector('.windowsIn').value || 0,
+        patio:  +form.querySelector('.patioIn').value   || 0,
+        entry:  +form.querySelector('.entryIn').value   || 0,
+        // Optionally, could add address, phone, email here if needed for presentation
+      });
+    });
+
+    // Show / hide navigation controls based on quote count
+    if (presentationQuotes.length <= 1) {
+      $('#prevQuote').classList.add('hidden');
+      $('#nextQuote').classList.add('hidden');
+      $('#quoteIndex').classList.add('hidden');
+    } else {
+      $('#prevQuote').classList.remove('hidden');
+      $('#nextQuote').classList.remove('hidden');
+      $('#quoteIndex').classList.remove('hidden');
+    }
+
+    if (presentationQuotes.length === 0)
+      return alert('No valid quotes to present');
+
+    presentationCurrent = 0;
+
+    // Switch panels
+    $('#adminPanel').classList.add('hidden');
+    $('#clientPanel').classList.remove('hidden');
+
+    // Show first quote
+    showPresentationQuote(presentationCurrent);
+  });
+
+  /* ---------- Quote Search ---------- */
+  const searchPanel   = $('#quoteSearchPanel');
+  const searchInput   = $('#quoteSearchInput');
+  const searchResults = $('#searchResults');
+
+  $('#searchQuotes').addEventListener('click', () => {
+    searchPanel.classList.remove('hidden');
+    searchInput.focus();
+    renderSearch('');
+  });
+  $('#closeSearch').addEventListener('click', () => {
+    searchPanel.classList.add('hidden');
+    searchInput.value = '';
+    searchResults.innerHTML = '';
+  });
+  searchInput.addEventListener('input', e => renderSearch(e.target.value));
+
+  function renderSearch(q) {
+    const arr  = JSON.parse(localStorage.getItem(QUOTES) || '[]');
+    const term = q.trim().toLowerCase();
+    const matches = term
+      ? arr.filter(o =>
+          (o.name||'').toLowerCase().includes(term) ||
+          (o.address?.city||'').toLowerCase().includes(term) ||
+          (o.address?.street||'').toLowerCase().includes(term) ||
+          (o.phone||'').toLowerCase().includes(term) ||
+          (o.label||'').toLowerCase().includes(term))
+      : arr;
+
+    searchResults.innerHTML = matches.length
+      ? ''
+      : '<p class="text-sm text-gray-500">No matches.</p>';
+
+    matches.forEach(o => {
+      const idx = arr.indexOf(o);
+      searchResults.insertAdjacentHTML('beforeend', `
+        <div class="flex justify-between items-center p-2 bg-white rounded-lg shadow-sm">
+          <div>
+            <p class="font-semibold">${o.name || '(Unnamed)'}</p>
+            <p class="text-xs text-gray-600">${(o.address?.street||'').slice(0,30)} ${o.address?.city||''}</p>
+            <p class="text-xs text-gray-500">${new Date(o.timestamp).toLocaleDateString()}</p>
+          </div>
+          <button data-i="${idx}"
+                  class="loadFromSearch bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-1">
+            Load
+          </button>
+          <button data-i="${idx}"
+                  class="deleteFromSearch bg-red-600 hover:bg-red-700 text-white rounded-lg px-3 py-1 ml-2">
+            Delete
+          </button>
+          <button data-i="${idx}"
+                  class="copyFromSearch bg-green-600 hover:bg-green-700 text-white rounded-lg px-3 py-1 ml-2">
+            Copy
+          </button>
+        </div>`);
+    });
+  }
+
+  // Delegate clicks on Load button in search results
+  searchResults.addEventListener('click', e => {
+    if (!e.target.classList.contains('loadFromSearch')) return;
+    const idx  = +e.target.dataset.i;
+    const arr  = JSON.parse(localStorage.getItem(QUOTES) || '[]');
+    const snap = arr[idx];
+    if (!snap) return;
+    // Populate Client Info
+    $('#clientName').value   = snap.name   || '';
+    $('#clientPhone').value  = snap.phone  || '';
+    $('#clientEmail').value  = snap.email  || '';
+    $('#clientStreet').value = snap.address?.street || '';
+    $('#clientCity').value   = snap.address?.city   || '';
+    $('#clientZip').value    = snap.address?.zip    || '';
+    // Clear existing quote forms
+    document.querySelectorAll('.quote-form').forEach((f,i) => {
+      if (i>0) f.remove();
+    });
+    // Populate first form and clone for others
+    snap.quotes.forEach((qData, i) => {
+      if (i > 0) { document.querySelector('#addQuote').click(); }
+      const form = document.querySelectorAll('.quote-form')[i];
+      form.querySelector('.quote-name').value   = qData.label;
+      form.querySelector('.finalPrice').value   = qData.final;
+      form.querySelector('.baseDiscount').value = qData.basePct;
+      form.querySelector('.extraDiscount').value= qData.extraPct;
+      form.querySelector('.windowsIn').value    = qData.windows;
+      form.querySelector('.patioIn').value      = qData.patio;
+      form.querySelector('.entryIn').value      = qData.entry;
+    });
+    currentQuoteIndex = idx;
+    searchPanel.classList.add('hidden');
+  });
+
+  // Delete a saved quote and refresh search results
+  searchResults.addEventListener('click', e => {
+    if (!e.target.classList.contains('deleteFromSearch')) return;
+    const idx = +e.target.dataset.i;
+    const arr = JSON.parse(localStorage.getItem(QUOTES) || '[]');
+    arr.splice(idx, 1);
+    localStorage.setItem(QUOTES, JSON.stringify(arr));
+    renderSearch(searchInput.value);
+  });
+
+  // Copy a saved quote and refresh search results
+  searchResults.addEventListener('click', e => {
+    if (!e.target.classList.contains('copyFromSearch')) return;
+    const idx = +e.target.dataset.i;
+    const arr = JSON.parse(localStorage.getItem(QUOTES) || '[]');
+    const q = arr[idx];
+    if (!q) return;
+    const copy = {
+      ...q,
+      id: Date.now(),
+      timestamp: new Date().toISOString(),
+      label: q.label ? q.label + ' Copy' : 'Copy of Quote'
+    };
+    arr.push(copy);
+    localStorage.setItem(QUOTES, JSON.stringify(arr));
+    renderSearch(searchInput.value);
+  });
+
+  $('#paymentToggle').addEventListener('click', () => {
+    const sec = $('#paymentSection');
+    sec.classList.toggle('hidden');
+    paymentVisible = !sec.classList.contains('hidden');
+    if (paymentVisible) {
+      sec.classList.add('fade-in');
+      setTimeout(() => sec.classList.remove('fade-in'), 500);
+      // If user had already revealed all tiles, show them again
+      if (paymentsRevealed) {
+        document.querySelectorAll('#colMonthly .optionCard, #colSAC .optionCard')
+                .forEach(c => c.classList.remove('hidden'));
+        monthlyRevealStep = monthlyTiles.length;
+        sacRevealStep     = sacTiles.length;
+      }
+    }
+  });
+
+  $('#backToAdmin').addEventListener('click', () => {
+    if (prompt('Password?') === (localStorage.getItem(PWD) || 'admin')) {
+      $('#clientPanel').classList.add('hidden');
+      $('#adminPanel').classList.remove('hidden');
       currentQuoteIndex = null;
     }
-  };
+  });
 
-  const makePdf=()=>{const {jsPDF}=window.jspdf;const d=new jsPDF();let y=20;d.setFontSize(18);d.text('American Vision Windows',15,y);y+=10;d.setFontSize(12);d.text('Total: '+$('#projectTotal').textContent,15,y);y+=8;d.text('Savings: '+$('#savingsBadge').textContent.replace(' Savings',''),15,y);y+=8;d.text('Payment Options:',15,y);y+=6;['colMonthly','colSAC','colCash'].forEach(id=>{document.querySelectorAll('#'+id+' .optionCard').forEach(c=>{const h=c.querySelector('.optionHead').textContent;const a=c.querySelector('.payAmt').textContent;d.text(`- ${h}: ${a}`,20,y);y+=6;});});d.save('avw-quote.pdf');};
-  $('#printBtn').onclick=()=>window.print();
-  $('#emailBtn').onclick=()=>{makePdf();setTimeout(()=>location.href='mailto:?subject=Your%20AVW%20Quote',300);};
+  function makePdf() {
+    const { jsPDF } = window.jspdf;
+    const d = new jsPDF();
+    let y = 20;
+    d.setFontSize(18);
+    d.setFont('helvetica', 'bold');
+    d.text('American Vision Windows - Project Quote', 15, y);
+    y += 10;
+    d.setFontSize(12);
+    d.setFont('helvetica', 'normal');
+    d.text(`Client: ${$('#clientNameDisplay').textContent.replace('Client: ', '') || 'Unnamed'}`, 15, y);
+    y += 8;
+    d.text(`Retail Price: ${$('#retailPrice').textContent}`, 15, y);
+    y += 8;
+    d.text(`Total After Discounts: ${$('#projectTotal').textContent}`, 15, y);
+    y += 8;
+    d.text(`Savings: ${$('#savingsBadge').textContent.replace(' Savings', '')}`, 15, y);
+    y += 10;
+    d.text(`Products: ${$('#windowsCount').textContent} Windows, ${$('#patioCount').textContent} Patio Doors, ${$('#entryCount').textContent} Entry Doors`, 15, y);
+    y += 10;
+    d.setFont('helvetica', 'bold');
+    d.text('Payment Options:', 15, y);
+    y += 6;
+    d.setFont('helvetica', 'normal');
+    ['colMonthly', 'colSAC', 'colCash'].forEach(id => {
+      d.text(`${id.replace('col', '')} Plans:`, 15, y);
+      y += 6;
+      document.querySelectorAll(`#${id} .optionCard`).forEach(c => {
+        if (!c.classList.contains('hidden')) {
+          const head = c.querySelector('.optionHead').textContent;
+          const amt = c.querySelector('.payAmt').textContent;
+          const term = c.querySelector('.payTerm').textContent;
+          d.text(`- ${head}: ${amt} (${term})`, 20, y);
+          y += 6;
+        }
+      });
+      y += 4;
+    });
+    d.save('avw-quote.pdf');
+  }
+
+  $('#printBtn').addEventListener('click', () => window.print());
+  $('#emailBtn').addEventListener('click', () => {
+    makePdf();
+    alert('PDF downloaded. Please attach it to your email manually.');
+    setTimeout(() => location.href = 'mailto:?subject=Your%20AVW%20Quote', 300);
+  });
 });
 </script>
 </body>
